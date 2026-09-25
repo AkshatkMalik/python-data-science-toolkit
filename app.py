@@ -4,7 +4,7 @@ import pandas as pd
 import streamlit as st
 
 # ==========================================
-# 1. PAGE CONFIGURATION & THEME STYLING
+# 1. PAGE CONFIGURATION & CINEMATIC DARK STYLING
 # ==========================================
 st.set_page_config(
     page_title="Titanic Survival Intelligence App",
@@ -13,22 +13,45 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Custom CSS styling for an enhanced dark mode look and polished components
+# Custom CSS for cinematic dark mode, glassmorphism cards, and sleek typography
 st.markdown(
     """
     <style>
-    .main {
-        background-color: #0e1117;
-        color: #ffffff;
+    /* Global Cinematic Background Gradient */
+    .stApp {
+        background: radial-gradient(circle at 50% 10%, #1a1f2c 0%, #0d1117 100%);
+        color: #f0f6fc;
     }
-    .stMetric {
-        background-color: #161b22;
-        padding: 15px;
-        border-radius: 10px;
-        border: 1px solid #30363d;
+    
+    /* Glassmorphism Container Styling */
+    div.stButton > button {
+        background: linear-gradient(135deg, #FF4B4B 0%, #FF6B6B 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 0.75rem 1.5rem;
+        font-weight: bold;
+        box-shadow: 0 4px 15px rgba(255, 75, 75, 0.4);
+        transition: all 0.3s ease;
     }
-    .reportview-container {
-        background: #0e1117;
+    div.stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(255, 75, 75, 0.6);
+    }
+    
+    /* Metric Card Styling */
+    .metric-card {
+        background: rgba(22, 27, 34, 0.7);
+        border: 1px solid rgba(48, 54, 61, 0.8);
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        backdrop-filter: blur(4px);
+    }
+    
+    /* Header styling */
+    h1, h2, h3 {
+        letter-spacing: -0.5px;
     }
     </style>
 """,
@@ -37,11 +60,11 @@ st.markdown(
 
 
 # ==========================================
-# 2. MODEL & DEPENDENCY LOADING
+# 2. MODEL LOADING WITH ERROR HANDLING
 # ==========================================
 @st.cache_resource
 def load_model():
-  # Loads the serialized logistic regression model
+  # Load the trained Logistic Regression model from pickle file
   with open("titanic_model.pkl", "rb") as file:
     model = pickle.load(file)
   return model
@@ -51,24 +74,24 @@ try:
   model = load_model()
 except Exception as e:
   st.error(
-      f"Error loading model file (`titanic_model.pkl`). Please ensure it is"
-      f" placed in the `titanic-app` directory. Details: {e}"
+      f"⚠️ Critical Error: Could not load `titanic_model.pkl`. Ensure it is"
+      f" inside the `titanic-app` folder. Details: {e}"
   )
   st.stop()
 
 
 # ==========================================
-# 3. SIDEBAR & USER INPUT CONTROLS
+# 3. SIDEBAR USER CONTROLS (WITH EXPLICIT LABELS)
 # ==========================================
-st.sidebar.header("🧭 Passenger Profile Setup")
+st.sidebar.markdown("## 🧭 Passenger Profile Setup")
 st.sidebar.markdown(
-    "Adjust the features below to simulate passenger demographics and evaluate"
-    " survival probability using a trained Logistic Regression pipeline."
+    "Configure passenger demographics below to evaluate real-time survival"
+    " probability."
 )
 
 
 def user_input_features():
-  # Categorical & Numerical inputs with explicit user-friendly labels
+  # Explicit labels prevent blank input boxes
   pclass = st.sidebar.selectbox(
       "Passenger Class (Pclass)",
       options=[1, 2, 3],
@@ -78,7 +101,8 @@ def user_input_features():
           else ("2nd Class (Middle)" if x == 2 else "3rd Class (Lower)")
       ),
       help=(
-          "Socio-economic status indicator (1 = Upper class, 3 = Lower class)."
+          "Socio-economic status: 1 = Upper class, 2 = Middle class, 3 = Lower"
+          " class"
       ),
   )
 
@@ -94,7 +118,7 @@ def user_input_features():
       max_value=80.0,
       value=28.0,
       step=1.0,
-      help="Age in years. Infants under 1 are represented as decimals.",
+      help="Age of the passenger in years.",
   )
 
   sibsp = st.sidebar.number_input(
@@ -116,24 +140,24 @@ def user_input_features():
   )
 
   fare = st.sidebar.number_input(
-      "Ticket Fare (£ / $)",
+      "Ticket Fare ($)",
       min_value=0.0,
       max_value=512.33,
       value=32.20,
       step=1.0,
-      help="Passenger fare paid for the voyage.",
+      help="Ticket price paid for the voyage.",
   )
 
   embarked = st.sidebar.selectbox(
       "Port of Embarkation",
       options=["Southampton (S)", "Cherbourg (C)", "Queenstown (Q)"],
-      help="Port where the passenger boarded the ship.",
+      help="Port where the passenger boarded.",
   )
 
-  # Map categorical inputs to the encoding expected by your backend model
-  sex_val = 1 if sex == "Female" else 0  # Adjust based on your model's encoding
+  # Data Preprocessing/Encoding mapping to match model training features
+  sex_val = 1 if sex == "Female" else 0
 
-  # Map embarked port string to model categorical codes if applicable
+  # Map embarked to numerical code matching training schema
   embarked_map = {
       "Southampton (S)": 0,
       "Cherbourg (C)": 1,
@@ -141,116 +165,113 @@ def user_input_features():
   }
   embarked_val = embarked_map[embarked]
 
-  # Compile features into a dataframe structure matching training columns
-  # Note: Ensure this matches the exact feature columns/order your model was trained on.
+  # Compile into a DataFrame ensuring exact feature match including 'Embarked'
   data = {
-      "Pclass": pclass,
-      "Sex": sex_val,
-      "Age": age,
-      "SibSp": sibsp,
-      "Parch": parch,
-      "Fare": fare,
+      "Pclass": [pclass],
+      "Sex": [sex_val],
+      "Age": [age],
+      "SibSp": [sibsp],
+      "Parch": [parch],
+      "Fare": [fare],
+      "Embarked": [embarked_val],
   }
-  features = pd.DataFrame(data, index=[0])
-  return features
+  return pd.DataFrame(data)
 
 
 input_df = user_input_features()
 
 
 # ==========================================
-# 4. MAIN INTERFACE & DASHBOARD
+# 4. MAIN DASHBOARD UI & VISUALS
 # ==========================================
 st.title("🚢 Titanic Survival Intelligence Dashboard")
 st.markdown(
     """
-    ### Predictive Analytics & Risk Assessment Tool
-    This application leverages a production-grade **Logistic Regression model** trained on historical 
-    Titanic passenger manifests. It evaluates critical survival vectors such as socio-economic status, 
-    age profiles, and ticket pricing to estimate survival probability in real-time.
+    ### Production-Grade Logistic Regression Analytics
+    Welcome to the interactive risk-assessment portal. This application analyzes historical 
+    demographic attributes and socio-economic markers to predict passenger survival outcomes.
     """
 )
 
 st.divider()
 
-# Display input summary metrics for professional presentation
-st.subheader("📊 Current Simulation Parameters")
-col1, col2, col3, col4 = st.columns(4)
+# Aesthetic Summary Metric Display Cards
+st.subheader("📊 Active Simulation Parameter Overview")
+m1, m2, m3, m4 = st.columns(4)
 
-with col1:
+with m1:
   st.metric(
-      label="Passenger Class",
+      label="Socioeconomic Class",
       value=f"Class {int(input_df['Pclass'].values[0])}",
   )
-with col2:
-  gender_label = (
-      "Female" if input_df["Sex"].values[0] == 1 else "Male"
-  )
-  st.metric(label="Demographic", value=gender_label)
-with col3:
-  st.metric(label="Age Profile", value=f"{input_df['Age'].values[0]:.1f} yrs")
-with col4:
-  st.metric(label="Ticket Fare", value=f"${input_df['Fare'].values[0]:.2f}")
+with m2:
+  gender_str = "Female" if input_df["Sex"].values[0] == 1 else "Male"
+  st.metric(label="Demographic Profile", value=gender_str)
+with m3:
+  st.metric(label="Age Parameter", value=f"{input_df['Age'].values[0]:.1f} yrs")
+with m4:
+  st.metric(label="Fare Allocation", value=f"${input_df['Fare'].values[0]:.2f}")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
 
 # ==========================================
-# 5. PREDICTION & VISUALIZATION LOGIC
+# 5. PREDICTION & INTERACTIVE VISUALIZATIONS
 # ==========================================
 if st.button(
-    "Run Survival Prediction Analysis", type="primary", use_container_width=True
+    "✨ Execute Predictive Analysis", use_container_width=True
 ):
   try:
-    # Perform prediction and probability estimation
+    # Run model prediction & probability inference
     prediction = model.predict(input_df)
-    prediction_proba = model.predict_proba(input_df)
+    probabilities = model.predict_proba(input_df)
 
-    survival_prob = prediction_proba[0][1] * 100
-    perish_prob = prediction_proba[0][0] * 100
+    survive_prob = probabilities[0][1] * 100
+    perish_prob = probabilities[0][0] * 100
 
     st.divider()
-    st.subheader("🎯 Predictive Insights & Results")
+    st.subheader("🎯 Predictive Output & Insights")
 
-    res_col1, res_col2 = st.columns([1, 1])
+    res_col1, res_col2 = st.columns(2)
 
     with res_col1:
       if prediction[0] == 1:
         st.success(
-            "### Outcome: Predicted SURVIVED ✨\nBased on historical patterns,"
-            " this passenger profile matches favorable survival profiles."
+            "### Status: PREDICTED SURVIVOR ✨\nBased on model weights,"
+            " historical indicators favor survival for this configuration."
         )
       else:
         st.error(
-            "### Outcome: Predicted DID NOT SURVIVE ⚠️\nBased on historical"
-            " patterns, this passenger profile faces high vulnerability risk."
+            "### Status: HIGH RISK / PERISHED ⚠️\nBased on model weights,"
+            " historical indicators show vulnerability for this configuration."
         )
 
       st.metric(
-          label="Calculated Survival Probability",
-          value=f"{survival_prob:.2f}%",
+          label="Calculated Survival Probability Index",
+          value=f"{survive_prob:.2f}%",
       )
 
     with res_col2:
-      st.markdown("#### Probability Distribution Breakdown")
-      chart_data = pd.DataFrame(
+      st.markdown("#### 📈 Probability Distribution Chart")
+      chart_df = pd.DataFrame(
           {
-              "Outcome": ["Perished", "Survived"],
-              "Probability (%)": [perish_prob, survival_prob],
+              "Outcome State": ["Perished Risk", "Survival Probability"],
+              "Probability (%)": [perish_prob, survive_prob],
           }
       )
-      st.bar_chart(chart_data, x="Outcome", y="Probability (%)", color="#4CAF50")
+      # Native interactive Streamlit bar chart with styled visual metrics
+      st.bar_chart(chart_df, x="Outcome State", y="Probability (%)", color="#FF4B4B")
 
-  except Exception as e:
+  except Exception as err:
     st.error(
-        f"An error occurred during model inference: {e}. Please check that"
-        " your feature columns match the training schema."
+        f"Inference execution error: {err}. Please verify column schema"
+        " consistency."
     )
 
-# Footer info
+# Footer credit
 st.markdown("<br><hr>", unsafe_allow_html=True)
 st.markdown(
-    "<p style='text-align: center; color: #8b949e;'>Developed as part of Data"
-    " Science Portfolio & Deployment Toolkit</p>",
+    "<p style='text-align: center; color: #8b949e; font-size: 0.9rem;'>Titanic"
+    " Machine Learning Deployment Toolkit | Built with Streamlit & Scikit-Learn</p>",
     unsafe_allow_html=True,
 )
